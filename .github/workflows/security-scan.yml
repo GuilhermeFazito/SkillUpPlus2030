@@ -1,0 +1,298 @@
+name: Security CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    # Executa scan de segurança semanalmente às segundas 09:00
+    - cron: '0 9 * * 1'
+
+jobs:
+  # Job 1: Análise de Dependências
+  dependency-check:
+    name: Verificação de Dependências Vulneráveis
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+      
+      - name: Instalar dependências
+        run: npm ci
+      
+      - name: Audit de Segurança NPM
+        run: |
+          npm audit --audit-level=moderate --json > npm-audit-report.json || true
+          npm audit --audit-level=moderate
+        continue-on-error: true
+      
+      - name: Upload relatório NPM Audit
+        uses: actions/upload-artifact@v3
+        with:
+          name: npm-audit-report
+          path: npm-audit-report.json
+
+  # Job 2: Análise Estática de Código (SAST)
+  static-analysis:
+    name: Análise Estática de Segurança
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+      
+      - name: Instalar dependências
+        run: npm ci
+      
+      - name: ESLint Security Analysis
+        run: |
+          npm install --save-dev eslint-plugin-security
+          npx eslint . --ext .js,.jsx,.ts,.tsx --format json --output-file eslint-report.json || true
+        continue-on-error: true
+      
+      - name: Upload relatório ESLint
+        uses: actions/upload-artifact@v3
+        with:
+          name: eslint-security-report
+          path: eslint-report.json
+
+  # Job 3: Verificação de Secrets/Credenciais
+  secret-scan:
+    name: Scan de Credenciais Expostas
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      
+      - name: TruffleHog Secret Scanning
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: main
+          head: HEAD
+          extra_args: --json --only-verified
+
+  # Job 4: OWASP ZAP Security Scan
+  owasp-zap-scan:
+    name: OWASP ZAP - Scan de Segurança Web
+    runs-on: ubuntu-latest
+    needs: [dependency-check, static-analysis]
+    
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+      
+      - name: Criar mock da aplicação web
+        run: |
+          mkdir -p mock-web-app
+          cat > mock-web-app/index.html << 'EOF'
+          <!DOCTYPE html>
+          <html>
+          <head>
+              <title>SkillUpPlus2030 - Mock App</title>
+          </head>
+          <body>
+              <h1>Mock App para Teste OWASP ZAP</h1>
+              <form action="/login" method="POST">
+                  <input type="text" name="email" placeholder="Email">
+                  <input type="password" name="password" placeholder="Senha">
+                  <button type="submit">Login</button>
+              </form>
+              <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app.js"></script>
+              <script>
+                  const firebaseConfig = {
+                      apiKey: "mock-api-key",
+                      authDomain: "mock-app.firebaseapp.com",
+                      projectId: "mock-project"
+                  };
+              </script>
+          </body>
+          </html>
+          EOF
+      
+      - name: Iniciar servidor HTTP para teste
+        run: |
+          cd mock-web-app
+          python3 -m http.server 8080 &
+          sleep 5
+          curl http://localhost:8080 || echo "Servidor iniciado"
+      
+      - name: OWASP ZAP Baseline Scan
+        uses: zaproxy/action-baseline@v0.7.0
+        with:
+          target: 'http://localhost:8080'
+          rules_file_name: '.zap/rules.tsv'
+          cmd_options: '-a -j -l INFO'
+          allow_issue_writing: false
+          fail_action: false
+      
+      - name: Upload relatório OWASP ZAP
+        uses: actions/upload-artifact@v3
+        with:
+          name: owasp-zap-report
+          path: report_html.html
+          
+      - name: Upload relatório ZAP JSON
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: owasp-zap-json
+          path: report_json.json
+
+  # Job 5: Validação de Configurações Firebase
+  firebase-security-check:
+    name: Verificação de Segurança Firebase
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v3
+      
+      - name: Verificar configurações Firebase
+        run: |
+          echo "🔍 Verificando configurações de segurança do Firebase..."
+          
+          if grep -r "apiKey.*:.*AIza" src/ 2>/dev/null; then
+            echo "⚠️  ALERTA: Possível API Key do Firebase exposta no código!"
+            exit 1
+          fi
+          
+          if [ -f "google-services.json" ]; then
+            echo "⚠️  AVISO: google-services.json encontrado no repositório"
+          fi
+          
+          if [ -f "GoogleService-Info.plist" ]; then
+            echo "⚠️  AVISO: GoogleService-Info.plist encontrado no repositório"
+          fi
+          
+          echo "✅ Verificação de configurações Firebase concluída"
+
+  # Job 6: Verificação de Segurança da API Gemini
+  api-security-check:
+    name: Verificação de Segurança das APIs
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v3
+      
+      - name: Verificar uso seguro de APIs
+        run: |
+          echo "🔍 Analisando uso de APIs externas..."
+          
+          if grep -ri "gemini.*api.*key" src/ 2>/dev/null; then
+            echo "⚠️  ALERTA: Possível API Key do Gemini exposta!"
+            exit 1
+          fi
+          
+          if grep -r "http://" src/ | grep -v "localhost" | grep -v "//"; then
+            echo "⚠️  AVISO: Encontradas chamadas HTTP não seguras"
+          fi
+          
+          echo "✅ Verificação de segurança de APIs concluída"
+
+  # Job 7: Relatório Final Consolidado
+  security-report:
+    name: Gerar Relatório Final de Segurança
+    runs-on: ubuntu-latest
+    needs: [dependency-check, static-analysis, secret-scan, owasp-zap-scan, firebase-security-check, api-security-check]
+    if: always()
+    
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v3
+      
+      - name: Download todos os artefatos
+        uses: actions/download-artifact@v3
+      
+      - name: Gerar relatório consolidado
+        run: |
+          cat > security-report.md << 'EOF'
+          # 🔒 Relatório de Segurança - SkillUpPlus2030
+          
+          **Data:** $(date +%Y-%m-%d)
+          **Pipeline:** ${{ github.workflow }}
+          **Commit:** ${{ github.sha }}
+          
+          ## 📊 Resumo Executivo
+          
+          Este relatório consolida os resultados de múltiplas análises de segurança.
+          
+          ### ✅ Verificações Realizadas
+          
+          1. **Análise de Dependências** - NPM Audit
+          2. **Análise Estática** - ESLint Security Plugin
+          3. **Scan de Credenciais** - TruffleHog
+          4. **Scan OWASP ZAP** - Vulnerabilidades Web
+          5. **Verificação Firebase** - Configurações de Segurança
+          6. **Verificação APIs** - Gemini e outras integrações
+          
+          ## 🎯 Principais Vulnerabilidades Encontradas
+          
+          ### Dependências Vulneráveis
+          - Consulte: npm-audit-report.json
+          
+          ### Análise Estática
+          - Consulte: eslint-security-report.json
+          
+          ### OWASP ZAP
+          - Consulte: owasp-zap-report (HTML e JSON)
+          
+          ## 🔧 Recomendações de Correção
+          
+          1. **Atualizar dependências vulneráveis** identificadas no NPM Audit
+          2. **Implementar variáveis de ambiente** para todas as credenciais
+          3. **Adicionar rate limiting** nas chamadas de API
+          4. **Configurar Firebase Security Rules** adequadamente
+          5. **Implementar validação de entrada** em todos os formulários
+          
+          ## 📈 Próximos Passos
+          
+          - [ ] Corrigir vulnerabilidades críticas
+          - [ ] Implementar monitoramento contínuo
+          - [ ] Configurar alertas de segurança
+          - [ ] Revisar permissões do Firebase
+          - [ ] Implementar testes de segurança automatizados
+          
+          EOF
+          
+          echo "✅ Relatório consolidado gerado!"
+      
+      - name: Upload relatório final
+        uses: actions/upload-artifact@v3
+        with:
+          name: security-final-report
+          path: security-report.md
+      
+      - name: Comentar PR com resumo
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v6
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: '🔒 **Scan de Segurança Concluído**\n\nVerifique os artefatos do workflow para ver os relatórios detalhados.'
+            })

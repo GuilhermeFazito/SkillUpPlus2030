@@ -41,3 +41,57 @@ app-example
 # generated native folders
 /ios
 /android
+
+
+# ===================================================================
+# CREDENCIAIS E SECRETS (CRÍTICO - NUNCA COMMITAR!)
+# ===================================================================
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.p12
+*.jks
+*.keystore
+secrets.json
+credentials.json
+
+# Firebase
+google-services.json
+GoogleService-Info.plist
+firebase-config.js
+
+# API Keys
+*-api-key.txt
+gemini-key.txt
+
+# ===================================================================
+# LOGS E RELATÓRIOS DE SEGURANÇA
+# ===================================================================
+security-reports/
+zap-reports/
+npm-audit-report.json
+eslint-report.json
+```
+
+---
+
+### **PASSO 6: Configurar Secrets no GitHub**
+
+1. Vá no seu repositório no GitHub
+2. Clique em **Settings** > **Secrets and variables** > **Actions**
+3. Clique em **"New repository secret"**
+4. Adicione (pode usar valores fake por enquanto):
+```
+Nome: FIREBASE_API_KEY
+Valor: AIzaSyABC123_fake_key_for_testing
+
+Nome: FIREBASE_AUTH_DOMAIN
+Valor: skillupplus2030.firebaseapp.com
+
+Nome: FIREBASE_PROJECT_ID
+Valor: skillupplus2030
+
+Nome: GEMINI_API_KEY
+Valor: fake_gemini_key_123

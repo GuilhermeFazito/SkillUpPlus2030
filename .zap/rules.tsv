@@ -1,0 +1,19 @@
+# Configuração de Regras do OWASP ZAP para SkillUpPlus2030
+# Formato: ID	THRESHOLD	[COMMENTS]
+
+# Regras de Alta Prioridade (FAIL)
+10202	FAIL	Anti-CSRF Tokens obrigatórios
+10105	FAIL	Autenticação fraca não permitida
+10098	FAIL	Configuração Cross-Domain deve ser correta
+
+# Regras de Média Prioridade (WARN)
+10021	WARN	X-Content-Type-Options recomendado
+10023	WARN	Mensagens de debug devem ser removidas
+90022	WARN	Errors de aplicação não devem vazar informações
+90033	WARN	Cookies devem ter escopo apropriado
+
+# Regras de Baixa Prioridade (INFO)
+10027	INFO	Comentários suspeitos no código
+10094	INFO	Dados em Base64 expostos
+10096	INFO	Timestamps expostos podem vazar informações
+10032	IGNORE	Viewstate não aplicável (React Native)
