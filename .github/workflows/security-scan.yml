@@ -6,21 +6,19 @@ on:
   pull_request:
     branches: [ main ]
   schedule:
-    # Executa scan de segurança semanalmente às segundas 09:00
     - cron: '0 9 * * 1'
 
 jobs:
-  # Job 1: Análise de Dependências
   dependency-check:
     name: Verificação de Dependências Vulneráveis
     runs-on: ubuntu-latest
     
     steps:
       - name: Checkout do código
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: '18'
           cache: 'npm'
@@ -35,22 +33,21 @@ jobs:
         continue-on-error: true
       
       - name: Upload relatório NPM Audit
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: npm-audit-report
           path: npm-audit-report.json
 
-  # Job 2: Análise Estática de Código (SAST)
   static-analysis:
     name: Análise Estática de Segurança
     runs-on: ubuntu-latest
     
     steps:
       - name: Checkout do código
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: '18'
       
@@ -64,19 +61,18 @@ jobs:
         continue-on-error: true
       
       - name: Upload relatório ESLint
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: eslint-security-report
           path: eslint-report.json
 
-  # Job 3: Verificação de Secrets/Credenciais
   secret-scan:
     name: Scan de Credenciais Expostas
     runs-on: ubuntu-latest
     
     steps:
       - name: Checkout do código
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
       
@@ -88,7 +84,6 @@ jobs:
           head: HEAD
           extra_args: --json --only-verified
 
-  # Job 4: OWASP ZAP Security Scan
   owasp-zap-scan:
     name: OWASP ZAP - Scan de Segurança Web
     runs-on: ubuntu-latest
@@ -96,10 +91,10 @@ jobs:
     
     steps:
       - name: Checkout do código
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: '18'
       
@@ -147,27 +142,26 @@ jobs:
           allow_issue_writing: false
           fail_action: false
       
-      - name: Upload relatório OWASP ZAP
-        uses: actions/upload-artifact@v3
+      - name: Upload relatório OWASP ZAP HTML
+        uses: actions/upload-artifact@v4
         with:
-          name: owasp-zap-report
+          name: owasp-zap-report-html
           path: report_html.html
           
       - name: Upload relatório ZAP JSON
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: owasp-zap-json
+          name: owasp-zap-report-json
           path: report_json.json
 
-  # Job 5: Validação de Configurações Firebase
   firebase-security-check:
     name: Verificação de Segurança Firebase
     runs-on: ubuntu-latest
     
     steps:
       - name: Checkout do código
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       
       - name: Verificar configurações Firebase
         run: |
@@ -188,14 +182,13 @@ jobs:
           
           echo "✅ Verificação de configurações Firebase concluída"
 
-  # Job 6: Verificação de Segurança da API Gemini
   api-security-check:
     name: Verificação de Segurança das APIs
     runs-on: ubuntu-latest
     
     steps:
       - name: Checkout do código
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       
       - name: Verificar uso seguro de APIs
         run: |
@@ -212,7 +205,6 @@ jobs:
           
           echo "✅ Verificação de segurança de APIs concluída"
 
-  # Job 7: Relatório Final Consolidado
   security-report:
     name: Gerar Relatório Final de Segurança
     runs-on: ubuntu-latest
@@ -221,19 +213,15 @@ jobs:
     
     steps:
       - name: Checkout do código
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       
       - name: Download todos os artefatos
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
       
       - name: Gerar relatório consolidado
         run: |
           cat > security-report.md << 'EOF'
           # 🔒 Relatório de Segurança - SkillUpPlus2030
-          
-          **Data:** $(date +%Y-%m-%d)
-          **Pipeline:** ${{ github.workflow }}
-          **Commit:** ${{ github.sha }}
           
           ## 📊 Resumo Executivo
           
@@ -261,33 +249,33 @@ jobs:
           
           ## 🔧 Recomendações de Correção
           
-          1. **Atualizar dependências vulneráveis** identificadas no NPM Audit
-          2. **Implementar variáveis de ambiente** para todas as credenciais
-          3. **Adicionar rate limiting** nas chamadas de API
-          4. **Configurar Firebase Security Rules** adequadamente
-          5. **Implementar validação de entrada** em todos os formulários
+          1. Atualizar dependências vulneráveis identificadas
+          2. Implementar variáveis de ambiente para credenciais
+          3. Adicionar rate limiting nas chamadas de API
+          4. Configurar Firebase Security Rules adequadamente
+          5. Implementar validação de entrada em formulários
           
           ## 📈 Próximos Passos
           
-          - [ ] Corrigir vulnerabilidades críticas
-          - [ ] Implementar monitoramento contínuo
-          - [ ] Configurar alertas de segurança
-          - [ ] Revisar permissões do Firebase
-          - [ ] Implementar testes de segurança automatizados
+          - Corrigir vulnerabilidades críticas
+          - Implementar monitoramento contínuo
+          - Configurar alertas de segurança
+          - Revisar permissões do Firebase
+          - Implementar testes de segurança automatizados
           
           EOF
           
           echo "✅ Relatório consolidado gerado!"
       
       - name: Upload relatório final
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: security-final-report
           path: security-report.md
       
       - name: Comentar PR com resumo
         if: github.event_name == 'pull_request'
-        uses: actions/github-script@v6
+        uses: actions/github-script@v7
         with:
           script: |
             github.rest.issues.createComment({
