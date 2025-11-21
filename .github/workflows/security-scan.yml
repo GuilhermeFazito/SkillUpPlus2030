@@ -134,12 +134,11 @@ jobs:
           curl http://localhost:8080 || echo "Servidor iniciado"
       
       - name: OWASP ZAP Baseline Scan
-        uses: zaproxy/action-baseline@v0.7.0
+        uses: zaproxy/action-baseline@v0.12.0
         with:
           target: 'http://localhost:8080'
           rules_file_name: '.zap/rules.tsv'
-          cmd_options: '-a -j -l INFO'
-          allow_issue_writing: false
+          cmd_options: '-a'
           fail_action: false
       
       - name: Upload relatório OWASP ZAP HTML
